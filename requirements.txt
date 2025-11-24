@@ -1,9 +1,8 @@
-streamlit>=1.30.0
+streamlit
 pandas
-numpy
+numpy<2
 scikit-learn
-matplotlib
 plotly
+Pillow
 rdkit-pypi
 streamlit-ketcher
-
