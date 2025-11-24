@@ -1,4 +1,4 @@
-# app.py - Advanced SAS Map Streamlit app (Simplified)
+# app.py - Advanced SAS Map Streamlit app
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,7 +7,6 @@ from rdkit.Chem import AllChem, DataStructs, MACCSkeys
 import plotly.express as px
 import plotly.graph_objects as go
 from io import BytesIO
-import base64
 
 # Try to import matplotlib with fallback
 try:
@@ -35,7 +34,7 @@ if not MATPLOTLIB_AVAILABLE:
     For now, the app will run with basic Plotly visualizations only.
     """)
 
-# ---------- Sidebar: Upload & Params ----------
+# ---------- Sidebar: Upload & Parameters ----------
 st.sidebar.header("Input & Parameters")
 uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
@@ -55,7 +54,6 @@ else:  # MACCS
     n_bits = 167  # MACCS has fixed size
 
 color_by = st.sidebar.selectbox("Color by", ["SALI", "MaxActivity"])
-top_n = st.sidebar.number_input("Top cliffs to highlight (top SALI)", min_value=1, max_value=1000, value=10)
 max_pairs_plot = st.sidebar.number_input("Max pairs to plot", min_value=2000, max_value=200000, value=10000, step=1000)
 
 # Enhanced visualization parameters (only show if matplotlib is available)
@@ -122,7 +120,7 @@ def compute_similarity_matrix(fps):
     
     return sim_matrix
 
-def create_enhanced_matplotlib_plot(pairs_df, color_by, similarity_threshold, activity_threshold, top_n_use):
+def create_enhanced_matplotlib_plot(pairs_df, color_by, similarity_threshold, activity_threshold):
     """Create enhanced matplotlib plot with professional styling"""
     if not MATPLOTLIB_AVAILABLE:
         return None
@@ -145,11 +143,6 @@ def create_enhanced_matplotlib_plot(pairs_df, color_by, similarity_threshold, ac
     # Create scatter plot
     sc = ax.scatter(plot_data['Similarity'], plot_data['Activity_Diff'],
                    c=colors, cmap=cmap, alpha=0.7, s=30)
-    
-    # Highlight top cliffs
-    top_cliffs = plot_data.nlargest(top_n_use, 'SALI')
-    ax.scatter(top_cliffs['Similarity'], top_cliffs['Activity_Diff'],
-              c='red', s=50, marker='*', label=f'Top {top_n_use} cliffs')
     
     # Add threshold lines
     ax.axvline(x=similarity_threshold, color='red', linestyle='--', alpha=0.8, 
@@ -312,22 +305,15 @@ if st.button("🚀 Generate SAS map and analyze"):
     pairs_df = pd.DataFrame(pairs)
     st.success(f"✅ Created {len(pairs_df):,} molecular pairs.")
 
-    # Mark top N SALI cliffs
-    top_n_use = min(int(top_n), len(pairs_df))
-    pairs_df["is_top_cliff"] = False
-    if top_n_use > 0:
-        top_idxs = pairs_df.nlargest(top_n_use, "SALI").index
-        pairs_df.loc[top_idxs, "is_top_cliff"] = True
-
     # ---------- RESULTS VISUALIZATION ----------
     st.markdown("---")
     st.header("📊 Results Visualization")
     
     # Create tabs for different visualizations
     if MATPLOTLIB_AVAILABLE and enhanced_plots:
-        tabs = st.tabs(["SAS Map (Plotly)", "Enhanced SAS Map", "Statistics", "Top Cliffs"])
+        tabs = st.tabs(["SAS Map (Plotly)", "Enhanced SAS Map", "Statistics"])
     else:
-        tabs = st.tabs(["SAS Map", "Statistics", "Top Cliffs"])
+        tabs = st.tabs(["SAS Map", "Statistics"])
     
     with tabs[0]:  # SAS Map tab
         st.subheader("SAS Activity Landscape Map")
@@ -336,30 +322,21 @@ if st.button("🚀 Generate SAS map and analyze"):
         plot_df = pairs_df
         if len(pairs_df) > max_pairs_plot:
             st.warning(f"Too many pairs ({len(pairs_df):,}) — subsampling {max_pairs_plot:,} for plotting.")
-            top_df = pairs_df[pairs_df["is_top_cliff"]]
-            other_df = pairs_df[~pairs_df["is_top_cliff"]].sample(n=max_pairs_plot - len(top_df), random_state=42)
-            plot_df = pd.concat([top_df, other_df], ignore_index=True)
+            plot_df = pairs_df.sample(n=max_pairs_plot, random_state=42)
 
-        plot_df = plot_df.copy()
-        plot_df["marker_size"] = np.where(plot_df["is_top_cliff"], 10, 6)
-        plot_df["symbol"] = np.where(plot_df["is_top_cliff"], "diamond", "circle")
-
-        color_col = color_by
-        
         # Create the plot
         fig = px.scatter(
             plot_df,
             x="Similarity",
             y="Activity_Diff",
-            color=color_col,
-            size="marker_size",
-            symbol="symbol",
+            color=color_by,
+            opacity=0.7,
             hover_data=["Mol1_ID", "Mol2_ID", "Similarity", "Activity_Diff", "SALI"],
-            title=f"SAS Map ({fingerprint_type}) — colored by {color_by} (top {top_n_use} cliffs highlighted)",
+            title=f"SAS Map ({fingerprint_type}) — colored by {color_by}",
             width=1000,
             height=650,
         )
-        fig.update_traces(marker=dict(opacity=0.8))
+        fig.update_traces(marker=dict(size=8))
         st.plotly_chart(fig, use_container_width=True)
         
         # Summary statistics for the plot
@@ -379,7 +356,7 @@ if st.button("🚀 Generate SAS map and analyze"):
             st.subheader("Enhanced SAS Map (Matplotlib)")
             
             fig = create_enhanced_matplotlib_plot(
-                pairs_df, color_by, similarity_threshold, activity_threshold, top_n_use
+                pairs_df, color_by, similarity_threshold, activity_threshold
             )
             if fig:
                 st.pyplot(fig)
@@ -424,41 +401,6 @@ if st.button("🚀 Generate SAS map and analyze"):
             st.subheader("Summary Statistics")
             stats_df = pairs_df[['Similarity', 'Activity_Diff', 'SALI']].describe()
             st.dataframe(stats_df, use_container_width=True)
-    
-    # Top Cliffs tab
-    top_cliffs_tab_index = 2 if not (MATPLOTLIB_AVAILABLE and enhanced_plots) else 3
-    with tabs[top_cliffs_tab_index]:
-        st.subheader(f"Top {top_n_use} Activity Cliffs")
-        
-        top_cliffs = pairs_df.nlargest(top_n_use, "SALI").reset_index(drop=True)
-        
-        # Display top cliffs in an expandable table
-        with st.expander("View All Top Cliffs", expanded=True):
-            st.dataframe(top_cliffs[['Mol1_ID', 'Mol2_ID', 'Similarity', 
-                                   'Activity_Diff', 'SALI', 'MaxActivity']], 
-                       use_container_width=True)
-        
-        # Show top 5 cliffs with more details
-        st.subheader("Top 5 Most Significant Cliffs")
-        for i, (idx, row) in enumerate(top_cliffs.head(5).iterrows()):
-            with st.expander(f"Cliff #{i+1}: {row['Mol1_ID']} vs {row['Mol2_ID']} (SALI: {row['SALI']:.2f})"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**{row['Mol1_ID']}**")
-                    st.code(f"SMILES: {row['SMILES1']}")
-                    st.write(f"Activity: {row['Activity1']:.3f}")
-                with col2:
-                    st.write(f"**{row['Mol2_ID']}**")
-                    st.code(f"SMILES: {row['SMILES2']}")
-                    st.write(f"Activity: {row['Activity2']:.3f}")
-                
-                col3, col4, col5 = st.columns(3)
-                with col3:
-                    st.metric("Similarity", f"{row['Similarity']:.3f}")
-                with col4:
-                    st.metric("Activity Difference", f"{row['Activity_Diff']:.3f}")
-                with col5:
-                    st.metric("SALI", f"{row['SALI']:.3f}")
 
     # Pair Classification Section (if enabled)
     if show_classification and MATPLOTLIB_AVAILABLE:
@@ -508,12 +450,13 @@ if st.button("🚀 Generate SAS map and analyze"):
         )
     
     with col2:
-        # Top cliffs only
+        # Top 100 cliffs only
+        top_cliffs = pairs_df.nlargest(100, "SALI")
         top_cliffs_csv = top_cliffs.to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📥 Top Cliffs Only (CSV)",
+            label="📥 Top 100 Cliffs (CSV)",
             data=top_cliffs_csv,
-            file_name=f"top_{top_n}_cliffs_{fingerprint_type}.csv",
+            file_name=f"top_100_cliffs_{fingerprint_type}.csv",
             mime="text/csv"
         )
 
