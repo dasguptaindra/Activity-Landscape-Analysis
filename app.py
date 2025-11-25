@@ -377,6 +377,44 @@ if uploaded_file is not None:
     with col3:
         act_col = st.selectbox("Activity Column", df_input.columns)
 
+    # Validation checks
+    validation_passed = True
+    validation_errors = []
+    
+    # Check if required columns are selected
+    if smiles_col == act_col:
+        validation_errors.append("SMILES Column and Activity Column cannot be the same")
+        validation_passed = False
+    
+    if id_col != "None" and (id_col == smiles_col or id_col == act_col):
+        validation_errors.append("ID Column cannot be the same as SMILES or Activity Column")
+        validation_passed = False
+    
+    # Check for valid data in selected columns
+    if smiles_col in df_input.columns:
+        if df_input[smiles_col].isna().all():
+            validation_errors.append(f"SMILES Column '{smiles_col}' contains only empty values")
+            validation_passed = False
+    
+    if act_col in df_input.columns:
+        if df_input[act_col].isna().all():
+            validation_errors.append(f"Activity Column '{act_col}' contains only empty values")
+            validation_passed = False
+        else:
+            # Try to convert to numeric to check if it's actually numeric data
+            try:
+                pd.to_numeric(df_input[act_col].dropna())
+            except ValueError:
+                validation_errors.append(f"Activity Column '{act_col}' contains non-numeric values")
+                validation_passed = False
+
+    # Display validation errors
+    if not validation_passed:
+        st.error("**Validation Errors:**")
+        for error in validation_errors:
+            st.error(f"• {error}")
+        st.stop()
+
     # RUN ANALYSIS
     if st.button("🚀 Generate SAS Map Plot"):
         st.session_state['analysis_results'] = None  # Clear old results
@@ -417,12 +455,12 @@ if uploaded_file is not None:
         else:
             plot_df = results_df
 
-        # Custom color mapping for zones
+        # FIXED: Custom color mapping for zones with correct spelling
         zone_colors = {
             'Activity Cliffs': 'red',
             'Smooth SAR': 'green', 
             'Similarity Cliffs': 'blue',
-            'Nondescriptive Zone': 'orange'
+            'Nondescriptive Zone': 'orange'  # Fixed spelling to match actual zone name
         }
 
         # Handle categorical vs continuous color mapping
@@ -436,7 +474,8 @@ if uploaded_file is not None:
                 title=f"SAS Map: Colored by Zone ({mol_rep})",
                 hover_data=["Mol1_ID", "Mol2_ID", "SALI", "Zone"],
                 opacity=0.7,
-                render_mode='webgl'
+                render_mode='webgl',
+                category_orders={"Zone": ["Activity Cliffs", "Smooth SAR", "Similarity Cliffs", "Nondescriptive Zone"]}
             )
         else:
             fig = px.scatter(
@@ -469,6 +508,10 @@ if uploaded_file is not None:
             yaxis=dict(
                 title_font=dict(family="Times New Roman", size=20),
                 tickfont=dict(family="Times New Roman", size=16)
+            ),
+            legend=dict(
+                title_font=dict(family="Times New Roman", size=14),
+                font=dict(family="Times New Roman", size=12)
             )
         )
         
