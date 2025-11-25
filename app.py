@@ -77,10 +77,6 @@ def generate_molecular_descriptors(smiles_list, desc_type, n_bits):
     descriptors = []
     valid_indices = []
     
-    # Pre-initialize generator for performance where possible
-    # Note: We stick to AllChem for specific radius control to match user expectations,
-    # but wrap it efficiently.
-    
     for idx, smiles in enumerate(smiles_list):
         smiles_str = str(smiles).strip()
         if not smiles_str:
@@ -257,13 +253,21 @@ def safe_dataframe_display(df, max_rows=5):
 # 3. UI LAYOUT
 # ==============================================================================
 
-st.title("Activity Landscape Explorer")
+st.title("🧪 Activity Landscape Explorer")
 
 st.sidebar.subheader("About")
 st.sidebar.info(
     "This tool analyzes Structure-Activity Relationships (SAR) using Activity Landscape Modeling. "
     "It identifies Activity Cliffs, Scaffold Hops, and Smooth SAR regions."
 )
+
+st.sidebar.subheader("Zone Definitions")
+st.sidebar.markdown("""
+- **Activity Cliffs**: High similarity, high activity difference
+- **Smooth SAR**: High similarity, low activity difference  
+- **Scaffold Hops**: Low similarity, low activity difference
+- **Nondescriptive**: Low similarity, high activity difference
+""")
 
 # ==============================================================================
 # 4. DATA INPUT
@@ -426,16 +430,137 @@ if uploaded_file is not None:
 
         st.plotly_chart(fig, use_container_width=True)
 
+        # ==============================================================================
+        # 7. DETAILED ANALYSIS & DOWNLOADS
+        # ==============================================================================
+
+        st.subheader("🔍 Detailed Analysis")
+        
+        # Zone-specific analysis
+        tab1, tab2, tab3, tab4 = st.tabs(["Activity Cliffs", "Smooth SAR", "Scaffold Hops", "All Pairs"])
+        
+        with tab1:
+            cliffs_df = results_df[results_df['Zone'] == 'Activity Cliffs']
+            st.write(f"**Activity Cliffs ({len(cliffs_df)} pairs)**: High similarity but large activity differences")
+            if not cliffs_df.empty:
+                st.dataframe(cliffs_df.sort_values('SALI', ascending=False).head(10))
+            else:
+                st.info("No Activity Cliffs found with current thresholds.")
+                
+        with tab2:
+            smooth_df = results_df[results_df['Zone'] == 'Smooth SAR']
+            st.write(f"**Smooth SAR ({len(smooth_df)} pairs)**: Consistent structure-activity relationships")
+            if not smooth_df.empty:
+                st.dataframe(smooth_df.sort_values('Similarity', ascending=False).head(10))
+            else:
+                st.info("No Smooth SAR regions found with current thresholds.")
+                
+        with tab3:
+            hops_df = results_df[results_df['Zone'] == 'Scaffold Hops']
+            st.write(f"**Scaffold Hops ({len(hops_df)} pairs)**: Different structures with similar activity")
+            if not hops_df.empty:
+                st.dataframe(hops_df.sort_values('Activity_Diff', ascending=True).head(10))
+            else:
+                st.info("No Scaffold Hops found with current thresholds.")
+                
+        with tab4:
+            st.dataframe(results_df.head(100))  # Limit display to 100 rows
+
+        # Statistics
+        st.subheader("📈 Statistics")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Pairs", len(results_df))
+            st.metric("Average Similarity", f"{results_df['Similarity'].mean():.3f}")
+            
+        with col2:
+            st.metric("Average Activity Difference", f"{results_df['Activity_Diff'].mean():.3f}")
+            st.metric("Max SALI", f"{results_df['SALI'].replace([np.inf, -np.inf], np.nan).max():.3f}")
+            
+        with col3:
+            st.metric("Pairs above Sim Threshold", f"{(results_df['Similarity'] >= sim_cutoff).sum()}")
+            st.metric("Pairs above Act Diff Threshold", f"{(results_df['Activity_Diff'] >= act_cutoff).sum()}")
+
         # Download Section
-        st.subheader("Downloads")
+        st.subheader("📥 Downloads")
+        
         csv = results_df.to_csv(index=False).encode('utf-8')
         st.download_button(
-            "Download Results CSV", 
+            "Download Full Results CSV", 
             csv, 
             "sas_map_results.csv", 
             "text/csv", 
             key='download-csv'
         )
+        
+        # Zone-specific downloads
+        col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+        
+        with col_d1:
+            cliffs_csv = results_df[results_df['Zone'] == 'Activity Cliffs'].to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "Download Activity Cliffs", 
+                cliffs_csv, 
+                "activity_cliffs.csv", 
+                "text/csv"
+            )
+            
+        with col_d2:
+            smooth_csv = results_df[results_df['Zone'] == 'Smooth SAR'].to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "Download Smooth SAR", 
+                smooth_csv, 
+                "smooth_sar.csv", 
+                "text/csv"
+            )
+            
+        with col_d3:
+            hops_csv = results_df[results_df['Zone'] == 'Scaffold Hops'].to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "Download Scaffold Hops", 
+                hops_csv, 
+                "scaffold_hops.csv", 
+                "text/csv"
+            )
 
 else:
-    st.info("👋 Please upload a CSV file to start.")
+    # Welcome screen when no file is uploaded
+    st.markdown("""
+    ## Welcome to the Activity Landscape Explorer!
+    
+    This application helps you analyze Structure-Activity Relationships (SAR) through Activity Landscape Modeling.
+    
+    ### How to use:
+    1. **Upload a CSV file** containing molecular structures and activity data
+    2. **Map your columns**: SMILES, Activity values, and optional Molecule IDs
+    3. **Configure analysis**: Choose fingerprint type and thresholds
+    4. **Explore results**: Visualize SAS maps and analyze different SAR zones
+    
+    ### Expected CSV format:
+    - **SMILES Column**: Molecular structures in SMILES format
+    - **Activity Column**: Numeric activity values (pIC50, IC50, etc.)
+    - **ID Column (optional)**: Molecule identifiers
+    
+    ### Example dataset:
+    ```csv
+    molecule_id,smiles,activity
+    MOL001,CCCO,6.5
+    MOL002,CCCN,7.2
+    MOL003,CCCCCO,5.8
+    ```
+    
+    Upload a CSV file to get started!
+    """)
+
+# ==============================================================================
+# 8. FOOTER
+# ==============================================================================
+
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: gray;'>"
+    "Activity Landscape Explorer | Built with Streamlit & RDKit"
+    "</div>",
+    unsafe_allow_html=True
+)
