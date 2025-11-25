@@ -421,10 +421,19 @@ if uploaded_file is not None:
                 st.success(f"Processed {len(results)} pairs successfully!")
 
     # ==============================================================================
-    # 6. VISUALIZATION
+    # 6. VISUALIZATION & CLEAR BUTTON
     # ==============================================================================
 
     if st.session_state['analysis_results'] is not None:
+        # Add Clear Analysis button at the top of results section
+        col_results, col_clear = st.columns([0.8, 0.2])
+        with col_clear:
+            if st.button("🗑️ Clear Analysis", type="secondary"):
+                # Clear all analysis-related session state variables
+                st.session_state['analysis_results'] = None
+                st.session_state['selected_fp'] = None
+                st.rerun()
+        
         results_df = st.session_state['analysis_results']
         st.markdown("---")
         st.header("📊 Results: SAS Map")
@@ -625,5 +634,3 @@ with footer_col3:
         "</div>",
         unsafe_allow_html=True
     )
-
-
