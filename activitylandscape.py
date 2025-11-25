@@ -626,9 +626,3 @@ with footer_col3:
         "</div>",
         unsafe_allow_html=True
     )
-
-
-
-
-
-
