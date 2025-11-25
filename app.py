@@ -401,33 +401,9 @@ def perform_advanced_analysis(
 
 # Data input section
 st.subheader("Dataset Input")
-data_source = st.radio(
-    "Select data source:",
-    ("Upload CSV File", "Use Example Dataset"),
-    horizontal=True,
-)
 
-# Example dataset URL
-example_data_url = "https://raw.githubusercontent.com/exampleuser/molecular-data/main/sample_compounds.csv"
-
-# Store data source selection
-st.session_state["data_source"] = data_source
-
-uploaded_data = None
-
-if data_source == "Use Example Dataset":
-    try:
-        response = requests.get(example_data_url)
-        if response.status_code == 200:
-            uploaded_data = io.StringIO(response.text)
-        else:
-            st.error(f"Unable to load example dataset (HTTP {response.status_code}).")
-            st.stop()
-    except Exception as e:
-        st.error(f"Error loading example dataset: {e}")
-        st.stop()
-else:
-    uploaded_data = st.file_uploader("Upload CSV File", type=["csv"])
+# Only allow CSV upload now
+uploaded_data = st.file_uploader("Upload CSV File", type=["csv"])
 
 def read_csv_flexible(file_object):
     """Read CSV file with automatic delimiter detection"""
