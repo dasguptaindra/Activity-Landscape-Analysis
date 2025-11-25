@@ -132,7 +132,7 @@ def process_landscape_data(
     df, smiles_col, act_col, id_col, 
     desc_type, bits, sim_thresh, act_thresh
 ):
-    """Main processing pipeline with updated Zone Names."""
+    """Main processing pipeline with FIXED Zone Names."""
     # Input validation
     if df is None or df.empty:
         return None, "DataFrame is empty"
@@ -183,7 +183,7 @@ def process_landscape_data(
             act_diff = abs(act_arr[i] - act_arr[j])
             
             # -------------------------------------------------------
-            # ZONE CLASSIFICATION LOGIC - FIXED
+            # ZONE CLASSIFICATION LOGIC - FIXED TYPO
             # -------------------------------------------------------
             if sim >= sim_thresh and act_diff >= act_thresh:
                 zone = 'Activity Cliffs'
@@ -192,9 +192,9 @@ def process_landscape_data(
             elif sim >= sim_thresh and act_diff < act_thresh:
                 zone = 'Smooth SAR'
             else:
-                zone = 'Nondescriptive Zone'
+                zone = 'Nondescriptive Zone'  # FIXED: No space
 
-            # Calculate SALI with safe division - FIXED
+            # Calculate SALI with safe division
             denominator = max(1.0 - sim, min_dist)
             sali = act_diff / denominator
 
@@ -207,7 +207,7 @@ def process_landscape_data(
                 "Mol2_Activity": act_arr[j],
                 "Similarity": sim, 
                 "Activity_Diff": act_diff,
-                "Max_Activity": max(act_arr[i], act_arr[j]),  # Fixed column name
+                "Max_Activity": max(act_arr[i], act_arr[j]),
                 "SALI": sali,
                 "Zone": zone
             })
@@ -217,7 +217,7 @@ def process_landscape_data(
         
     pairs_df = pd.DataFrame(pairs)
     
-    # 4. Calculate Density - FIXED
+    # 4. Calculate Density
     if not pairs_df.empty and len(pairs_df) > 5:
         try:
             # Ensure we have valid numeric data for density calculation
@@ -543,10 +543,14 @@ if uploaded_file is not None:
             c3.metric("Similarity Cliffs", int(rc.get("Similarity Cliffs", 0)))
             c4.metric("Nondescriptive Zone", int(rc.get("Nondescriptive Zone", 0)))
             
-            # Plotting - ALWAYS PLOT ALL PAIRS (removed sampling)
-            plot_df = results_df.copy()  # Create a copy to avoid modifying original
+            # Plotting - ALWAYS PLOT ALL PAIRS
+            plot_df = results_df.copy()
 
-            # Custom color mapping for zones with correct spelling
+            # FIXED: Ensure Zone names are consistent
+            plot_df['Zone'] = plot_df['Zone'].str.strip()  # Remove any extra spaces
+            plot_df['Zone'] = plot_df['Zone'].replace('None descriptive Zone', 'Nondescriptive Zone')  # Fix the typo
+            
+            # Custom color mapping for zones with CORRECT spelling
             zone_colors = {
                 'Activity Cliffs': 'red',
                 'Smooth SAR': 'green', 
@@ -556,6 +560,13 @@ if uploaded_file is not None:
 
             # Handle categorical vs continuous color mapping
             if viz_color_col == "Zone":
+                # Ensure all zones are properly mapped
+                available_zones = plot_df['Zone'].unique()
+                for zone in available_zones:
+                    if zone not in zone_colors:
+                        # Assign a default color for any unexpected zones
+                        zone_colors[zone] = 'gray'
+                
                 fig = px.scatter(
                     plot_df,
                     x="Similarity",
@@ -571,25 +582,24 @@ if uploaded_file is not None:
             else:
                 # For continuous color scales, ensure data is valid
                 if viz_color_col in plot_df.columns:
-                    # Remove infinite values and handle NaN for continuous color scales
                     plot_df_clean = plot_df.copy()
                     
                     if viz_color_col == "SALI":
-                        # Handle SALI specifically - replace inf with large finite values
+                        # Handle SALI specifically
                         plot_df_clean[viz_color_col] = plot_df_clean[viz_color_col].replace([np.inf, -np.inf], np.nan)
-                        # Fill NaN with median or drop
                         if plot_df_clean[viz_color_col].isna().any():
                             median_val = plot_df_clean[viz_color_col].median()
                             plot_df_clean[viz_color_col] = plot_df_clean[viz_color_col].fillna(median_val)
                     
                     elif viz_color_col == "Density":
-                        # Handle Density - ensure it's properly scaled
+                        # Handle Density
                         plot_df_clean[viz_color_col] = plot_df_clean[viz_color_col].replace([np.inf, -np.inf], np.nan)
                         if plot_df_clean[viz_color_col].isna().any():
+                            # For density, drop NaN values
                             plot_df_clean = plot_df_clean.dropna(subset=[viz_color_col])
                     
                     elif viz_color_col == "Max_Activity":
-                        # Handle Max_Activity - ensure numeric
+                        # Handle Max_Activity
                         plot_df_clean[viz_color_col] = pd.to_numeric(plot_df_clean[viz_color_col], errors='coerce')
                         plot_df_clean = plot_df_clean.dropna(subset=[viz_color_col])
                     
@@ -660,7 +670,7 @@ if uploaded_file is not None:
             
             st.plotly_chart(fig, use_container_width=True)
             
-            # Show zone distribution only (removed statistical summary)
+            # Show zone distribution only
             st.subheader("Zone Distribution")
             zone_dist = results_df['Zone'].value_counts().reset_index()
             zone_dist.columns = ['Zone', 'Count']
