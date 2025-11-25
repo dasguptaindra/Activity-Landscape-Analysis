@@ -91,8 +91,14 @@ def generate_molecular_descriptors(smiles_list, desc_type, n_bits):
                 desc = MACCSkeys.GenMACCSKeys(mol)
             elif "ECFP" in desc_type or "FCFP" in desc_type:
                 use_features = "FCFP" in desc_type
-                # Parse radius from name (ECFP4 -> radius 2, ECFP6 -> radius 3)
-                radius = int(desc_type[-1]) // 2 if desc_type[-1].isdigit() else 2
+                # Parse radius from name (ECFP4 -> radius 2, ECFP6 -> radius 3, ECFP8 -> radius 4, ECFP10 -> radius 5)
+                radius_map = {
+                    "ECFP4": 2, "FCFP4": 2,
+                    "ECFP6": 3, "FCFP6": 3,
+                    "ECFP8": 4, "FCFP8": 4,
+                    "ECFP10": 5, "FCFP10": 5
+                }
+                radius = radius_map.get(desc_type, 2)  # Default to radius 2
                 
                 desc = AllChem.GetMorganFingerprintAsBitVect(
                     mol, radius=radius, nBits=n_bits, useFeatures=use_features
@@ -326,10 +332,10 @@ if uploaded_file is not None:
     st.markdown("---")
     st.subheader("3. Analysis Settings")
 
-    # Fingerprint Selection
+    # Fingerprint Selection - Updated with ECFP8 and ECFP10
     fp_type = st.selectbox(
         "Fingerprint Type", 
-        ["ECFP4", "ECFP6", "FCFP4", "FCFP6", "MACCS"],
+        ["ECFP4", "ECFP6", "ECFP8", "ECFP10", "FCFP4", "FCFP6", "FCFP8", "FCFP10", "MACCS"],
         index=0
     )
     
@@ -345,6 +351,16 @@ if uploaded_file is not None:
     with c_set2:
         sim_cutoff = st.slider("Similarity Threshold", 0.0, 1.0, 0.7, 0.05)
         act_cutoff = st.slider("Activity Diff Threshold", 0.0, 5.0, 1.0, 0.1)
+
+    # Info about fingerprint radii
+    st.info(f"""
+    **Fingerprint Details:**
+    - **ECFP4/FCFP4**: Radius 2 (diameter 4)
+    - **ECFP6/FCFP6**: Radius 3 (diameter 6) 
+    - **ECFP8/FCFP8**: Radius 4 (diameter 8)
+    - **ECFP10/FCFP10**: Radius 5 (diameter 10)
+    - **MACCS**: 166 predefined structural keys
+    """)
 
     # Run Button
     if st.button("🚀 Run Analysis", type="primary"):
@@ -555,12 +571,3 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True
 )
-
-
-
-
-
-
-
-
-
