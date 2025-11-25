@@ -624,7 +624,7 @@ with footer_col1:
 with footer_col2:
     st.markdown(
         "<div style='text-align: center; color: gray; font-size: 14px;'>"
-        "Developed by X"
+        "Developed by Indrasis Das Gupta"
         "</div>",
         unsafe_allow_html=True
     )
@@ -644,3 +644,4 @@ st.markdown("---")
 if st.button("💬 Quick Help", key="bottom_help"):
     st.session_state['show_help'] = True
     st.rerun()
+
