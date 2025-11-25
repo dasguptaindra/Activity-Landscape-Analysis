@@ -21,7 +21,7 @@ st.set_page_config(
 
 sns.set_style("whitegrid")
 
-# Initialize Session State to fix download button issues
+# Initialize Session State
 if 'analysis_results' not in st.session_state:
     st.session_state['analysis_results'] = None
 if 'analysis_mode_state' not in st.session_state:
@@ -95,7 +95,7 @@ def process_landscape_data(
     df, smiles_col, act_col, id_col, 
     desc_type, radius, bits, sim_thresh, act_thresh
 ):
-    """Main processing pipeline."""
+    """Main processing pipeline with updated Zone Names."""
     df_clean = df.dropna(subset=[smiles_col, act_col]).copy()
     
     smiles_arr = df_clean[smiles_col].astype(str).values
@@ -131,14 +131,17 @@ def process_landscape_data(
             sim = sim_matrix[i, j]
             act_diff = abs(act_arr[i] - act_arr[j])
             
+            # -------------------------------------------------------
+            # ZONE CLASSIFICATION LOGIC (MODIFIED NAMES)
+            # -------------------------------------------------------
             if sim >= sim_thresh and act_diff >= act_thresh:
                 zone = 'Activity Cliffs'
             elif sim < sim_thresh and act_diff < act_thresh:
-                zone = 'Scaffold Transitions'
+                zone = 'Similarity Cliffs'    # Previously 'Scaffold Transitions'
             elif sim >= sim_thresh and act_diff < act_thresh:
-                zone = 'Consistent SAR Regions'
+                zone = 'Smooth SAR'           # Previously 'Consistent SAR Regions'
             else:
-                zone = 'Baseline Regions'
+                zone = 'Nondescriptive Zone'  # Previously 'Baseline Regions'
 
             sali = act_diff / max(1.0 - sim, min_dist)
 
@@ -172,8 +175,12 @@ def process_landscape_data(
 st.title("Molecular Landscape Explorer")
 
 st.sidebar.subheader("Analysis Configuration")
+st.sidebar.markdown(
+    """For technical issues or suggestions, please create an issue on our 
+    [project repository](https://github.com/exampleuser/molecular-landscape-explorer)."""
+)
 
-# 1. FIXED: Renamed Analysis Mode
+# 1. Analysis Mode
 analysis_mode = st.sidebar.radio(
     "Analysis Mode", 
     ["Basic Landscape", "SAS Map Plot"] 
@@ -205,7 +212,7 @@ else:  # SAS Map Plot Mode
 
     st.sidebar.markdown("### Visualization Settings")
     
-    # 2. FIXED: Dropdown Options (Max. Activity, Density)
+    # Color Mapping options
     viz_color_col = st.sidebar.selectbox(
         "Color Mapping", 
         ["SALI", "Max. Activity", "Density"]
@@ -269,13 +276,13 @@ if uploaded_file:
         if current_mode == "SAS Map Plot":
             st.header("📊 SAS Map Plot Results")
             
-            # Stats
+            # Stats with Updated Zone Names
             rc = results_df['Zone'].value_counts()
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Activity Cliffs", int(rc.get("Activity Cliffs", 0)))
-            c2.metric("Consistent SAR", int(rc.get("Consistent SAR Regions", 0)))
-            c3.metric("Scaffold Trans.", int(rc.get("Scaffold Transitions", 0)))
-            c4.metric("Baseline", int(rc.get("Baseline Regions", 0)))
+            c2.metric("Smooth SAR", int(rc.get("Smooth SAR", 0)))
+            c3.metric("Similarity Cliffs", int(rc.get("Similarity Cliffs", 0)))
+            c4.metric("Nondescriptive", int(rc.get("Nondescriptive Zone", 0)))
             
             # Plotting
             if len(results_df) > max_viz_pairs:
@@ -287,7 +294,7 @@ if uploaded_file:
                 plot_df,
                 x="Similarity",
                 y="Activity_Diff",
-                color=viz_color_col, # Uses the new option
+                color=viz_color_col, 
                 color_continuous_scale=cmap_name,
                 title=f"SAS Map: Colored by {viz_color_col}",
                 hover_data=["Mol1_ID", "Mol2_ID", "SALI", "Zone"],
@@ -297,11 +304,27 @@ if uploaded_file:
             
             fig.add_vline(x=sim_cutoff, line_dash="dash", line_color="gray")
             fig.add_hline(y=act_cutoff, line_dash="dash", line_color="gray")
-            fig.update_layout(height=700, xaxis_title="Similarity", yaxis_title="Activity Difference")
+            
+            # PLOTLY FONT STYLING (Times New Roman)
+            fig.update_layout(
+                height=700,
+                xaxis_title="Similarity",
+                yaxis_title="Activity Difference",
+                font=dict(family="Times New Roman", size=16),
+                title_font=dict(family="Times New Roman", size=24),
+                xaxis=dict(
+                    title_font=dict(family="Times New Roman", size=20),
+                    tickfont=dict(family="Times New Roman", size=16)
+                ),
+                yaxis=dict(
+                    title_font=dict(family="Times New Roman", size=20),
+                    tickfont=dict(family="Times New Roman", size=16)
+                )
+            )
             
             st.plotly_chart(fig, use_container_width=True)
             
-            # 3. FIXED: DOWNLOADS
+            # Downloads
             csv_data = results_df.to_csv(index=False).encode('utf-8')
             
             buffer = io.StringIO()
@@ -316,9 +339,23 @@ if uploaded_file:
                 
         else: # Basic Mode
             st.subheader("Basic Landscape Plot")
+            
+            # MATPLOTLIB FONT CONFIGURATION
+            plt.rcParams["font.family"] = "Times New Roman"
+            plt.rcParams["axes.labelsize"] = 18
+            plt.rcParams["axes.titlesize"] = 20
+            plt.rcParams["xtick.labelsize"] = 14
+            plt.rcParams["ytick.labelsize"] = 14
+            
             fig, ax = plt.subplots(figsize=(10, 6))
-            colors = {'Activity Cliffs': 'red', 'Consistent SAR Regions': 'green', 
-                      'Scaffold Transitions': 'purple', 'Baseline Regions': 'blue'}
+            
+            # Updated Colors Dictionary with New Zone Names
+            colors = {
+                'Activity Cliffs': 'red', 
+                'Smooth SAR': 'green', 
+                'Similarity Cliffs': 'purple', 
+                'Nondescriptive Zone': 'blue'
+            }
             
             for zone, color in colors.items():
                 subset = results_df[results_df['Zone'] == zone]
@@ -329,7 +366,9 @@ if uploaded_file:
             ax.axhline(act_cutoff, c='k', ls='--')
             ax.set_xlabel("Similarity")
             ax.set_ylabel("Activity Diff")
-            ax.legend()
+            
+            # Set legend font
+            plt.legend(prop={'family': 'Times New Roman', 'size': 12})
             
             st.pyplot(fig)
             
