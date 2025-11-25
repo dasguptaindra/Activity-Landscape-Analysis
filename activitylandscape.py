@@ -348,7 +348,7 @@ if uploaded_file is not None:
 
     # Run Button
     if st.button("🚀 Run Analysis", type="primary"):
-        with st.spinner("Processing... (This is now 50x faster!)"):
+        with st.spinner("Processing..."):
             results, error = process_landscape_data(
                 df_input, smiles_col, act_col, id_col,
                 fp_type, bit_size, sim_cutoff, act_cutoff
@@ -555,6 +555,7 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True
 )
+
 
 
 
