@@ -295,45 +295,6 @@ def categorize_sar_regions(pairs_data, sim_threshold, act_threshold):
     
     return categorized_data
 
-def create_enhanced_visualization(plot_data, sim_threshold, act_threshold):
-    """Create enhanced landscape visualization"""
-    fig, ax = plt.subplots(figsize=(12, 9))
-    
-    # Create scatter plot with region coloring
-    sns.scatterplot(
-        data=plot_data.sort_values("Zone"),
-        x="Similarity",
-        y="Activity_Diff",
-        hue="Zone",
-        palette={
-            "Consistent SAR Regions": "green",
-            "Baseline Regions": "blue",
-            "Scaffold Transitions": "orange",
-            "Activity Cliffs": "red",
-        },
-        alpha=0.6,
-        s=30,
-        edgecolor=None,
-        ax=ax
-    )
-    
-    # Add threshold guidelines
-    ax.axvline(x=sim_threshold, color='red', linestyle='--', alpha=0.8, 
-               label=f'Similarity threshold = {sim_threshold}')
-    ax.axhline(y=act_threshold, color='blue', linestyle='--', alpha=0.8, 
-               label=f'Activity threshold = {act_threshold}')
-    
-    # Enhanced axis labels - larger and bold
-    plt.xlabel("Structural Similarity", fontsize=16, fontweight='bold')
-    plt.ylabel("Activity Difference", fontsize=16, fontweight='bold')
-    plt.title("Molecular Landscape Analysis", fontsize=16, fontweight='bold')
-    
-    plt.legend(title="SAR Region")
-    plt.grid(True)
-    
-    plt.tight_layout()
-    return fig
-
 def perform_advanced_analysis(
     df, smiles_column, activity_column, id_column, 
     desc_type, radius_param, n_bits, sim_threshold, 
@@ -564,125 +525,71 @@ if uploaded_data:
                             st.markdown("---")
                             st.header("📊 Analysis Visualizations")
                             
-                            # Create visualization tabs
-                            viz_tabs = st.tabs(["Region Classification", "Interactive Landscape"])
+                            # Modified section: Direct Interactive SALI Plot without tabs
+                            st.subheader("Interactive SALI Landscape")
                             
-                            with viz_tabs[0]:  # Region classification tab
-                                st.subheader("Molecular Landscape Regions")
-                                
-                                # Manage data size for visualization
-                                visualization_data = classified_results
-                                if len(classified_results) > max_visualization_pairs:
-                                    st.warning(f"Large dataset ({len(classified_results):,} pairs) - sampling {max_visualization_pairs:,} for visualization.")
-                                    # Sample proportionally from each region
-                                    visualization_data = classified_results.groupby(
-                                        'Zone', group_keys=False
-                                    ).apply(
-                                        lambda x: x.sample(
-                                            n=min(len(x), max_visualization_pairs // 4), 
-                                            random_state=42
-                                        )
-                                    )
-                                
-                                # Generate region visualization
-                                region_plot = create_enhanced_visualization(
-                                    visualization_data, similarity_cutoff, activity_cutoff
+                            # Prepare data for interactive visualization
+                            interactive_data = classified_results
+                            if len(classified_results) > max_visualization_pairs:
+                                st.warning(f"Large dataset - sampling {max_visualization_pairs:,} pairs for interactive view.")
+                                interactive_data = classified_results.sample(
+                                    n=max_visualization_pairs, random_state=42
                                 )
-                                st.pyplot(region_plot)
-                                
-                                # Download option for region plot
-                                buffer = BytesIO()
-                                region_plot.savefig(buffer, format="png", dpi=150, bbox_inches='tight')
-                                buffer.seek(0)
-                                
-                                st.download_button(
-                                    label="📥 Download Region Map",
-                                    data=buffer,
-                                    file_name=f"landscape_regions_{molecular_representation}.png",
-                                    mime="image/png"
-                                )
-                                
-                                # Region descriptions
-                                with st.expander("ℹ️ Region Descriptions"):
-                                    st.markdown("""
-                                    **Activity Cliffs**: Highly similar structures with significant activity differences  
-                                    → Important for understanding activity discontinuities
-                                    
-                                    **Consistent SAR Regions**: Similar structures with comparable activities  
-                                    → Predictable structure-activity relationships
-                                    
-                                    **Scaffold Transitions**: Different structural scaffolds with similar activities  
-                                    → Opportunities for scaffold hopping
-                                    
-                                    **Baseline Regions**: Diverse structures with varying activities  
-                                    → Expected behavior for structurally diverse compounds
-                                    """)
-                            
-                            with viz_tabs[1]:  # Interactive landscape tab
-                                st.subheader("Interactive Molecular Landscape")
-                                
-                                # Prepare data for interactive visualization
-                                interactive_data = classified_results
-                                if len(classified_results) > max_visualization_pairs:
-                                    st.warning(f"Large dataset - sampling {max_visualization_pairs:,} pairs for interactive view.")
-                                    interactive_data = classified_results.sample(
-                                        n=max_visualization_pairs, random_state=42
-                                    )
 
-                                # Create interactive plot with custom colormap for SALI/MaxActivity
-                                if visualization_color in ["SALI", "MaxActivity"]:
-                                    interactive_fig = px.scatter(
-                                        interactive_data,
-                                        x="Similarity",
-                                        y="Activity_Diff",
-                                        color=visualization_color,
-                                        color_continuous_scale=colormap_option,  # Use selected colormap
-                                        opacity=0.7,
-                                        hover_data=[
-                                            "Mol1_ID", "Mol2_ID", "Similarity", 
-                                            "Activity_Diff", "SALI", "Zone"
-                                        ],
-                                        title=f"Interactive Molecular Landscape ({molecular_representation})",
-                                        width=1000,
-                                        height=650,
-                                    )
-                                else:
-                                    interactive_fig = px.scatter(
-                                        interactive_data,
-                                        x="Similarity",
-                                        y="Activity_Diff",
-                                        color=visualization_color,
-                                        opacity=0.7,
-                                        hover_data=[
-                                            "Mol1_ID", "Mol2_ID", "Similarity", 
-                                            "Activity_Diff", "SALI", "Zone"
-                                        ],
-                                        title=f"Interactive Molecular Landscape ({molecular_representation})",
-                                        width=1000,
-                                        height=650,
-                                    )
-                                
-                                interactive_fig.update_traces(marker=dict(size=8))
-                                
-                                # Update axis labels - larger and bold
-                                interactive_fig.update_xaxes(
-                                    title_text="Structural Similarity",
-                                    title_font=dict(size=16, family="Arial Black")
+                            # Create interactive plot with custom colormap for SALI/MaxActivity
+                            if visualization_color in ["SALI", "MaxActivity"]:
+                                interactive_fig = px.scatter(
+                                    interactive_data,
+                                    x="Similarity",
+                                    y="Activity_Diff",
+                                    color=visualization_color,
+                                    color_continuous_scale=colormap_option,  # Use selected colormap
+                                    opacity=0.7,
+                                    hover_data=[
+                                        "Mol1_ID", "Mol2_ID", "Similarity", 
+                                        "Activity_Diff", "SALI", "Zone"
+                                    ],
+                                    title=f"Interactive Molecular Landscape ({molecular_representation})",
+                                    width=1000,
+                                    height=650,
                                 )
-                                interactive_fig.update_yaxes(
-                                    title_text="Activity Difference",
-                                    title_font=dict(size=16, family="Arial Black")
+                            else:
+                                interactive_fig = px.scatter(
+                                    interactive_data,
+                                    x="Similarity",
+                                    y="Activity_Diff",
+                                    color=visualization_color,
+                                    opacity=0.7,
+                                    hover_data=[
+                                        "Mol1_ID", "Mol2_ID", "Similarity", 
+                                        "Activity_Diff", "SALI", "Zone"
+                                    ],
+                                    title=f"Interactive Molecular Landscape ({molecular_representation})",
+                                    width=1000,
+                                    height=650,
                                 )
-                                
-                                # Add threshold guides
-                                interactive_fig.add_vline(
-                                    x=similarity_cutoff, line_dash="dash", line_color="red"
-                                )
-                                interactive_fig.add_hline(
-                                    y=activity_cutoff, line_dash="dash", line_color="blue"
-                                )
-                                
-                                st.plotly_chart(interactive_fig, use_container_width=True)
+                            
+                            interactive_fig.update_traces(marker=dict(size=8))
+                            
+                            # Update axis labels - larger and bold
+                            interactive_fig.update_xaxes(
+                                title_text="Structural Similarity",
+                                title_font=dict(size=16, family="Arial Black")
+                            )
+                            interactive_fig.update_yaxes(
+                                title_text="Activity Difference",
+                                title_font=dict(size=16, family="Arial Black")
+                            )
+                            
+                            # Add threshold guides
+                            interactive_fig.add_vline(
+                                x=similarity_cutoff, line_dash="dash", line_color="red"
+                            )
+                            interactive_fig.add_hline(
+                                y=activity_cutoff, line_dash="dash", line_color="blue"
+                            )
+                            
+                            st.plotly_chart(interactive_fig, use_container_width=True)
 
                             # Results download section
                             st.markdown("---")
