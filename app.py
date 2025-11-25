@@ -23,7 +23,8 @@ st.set_page_config(
 sns.set_style("whitegrid")
 
 # Initialize Session State for data persistence
-# This is crucial for download buttons to work correctly without resetting the app
+# This ensures that when you interact with widgets (like download buttons),
+# the analysis results are not lost or re-calculated.
 if 'analysis_results' not in st.session_state:
     st.session_state['analysis_results'] = None
 if 'analysis_mode_state' not in st.session_state:
@@ -194,6 +195,7 @@ def process_landscape_data(
     pairs_df = pd.DataFrame(pairs)
     
     # 4. Calculate Density (if enough points exist)
+    # This adds the "Density" column for the new visualization request
     if not pairs_df.empty and len(pairs_df) > 5:
         try:
             density, _ = compute_density(pairs_df["Similarity"], pairs_df["Activity_Diff"])
@@ -301,7 +303,7 @@ if uploaded_file:
             
             with st.spinner("Calculating Molecular Landscape..."):
                 # Unified processing call for both modes
-                # This ensures robustness for both Basic and Advanced modes
+                # This ensures robustness for both Basic and SAS Map Plot modes
                 results, error_msg = process_landscape_data(
                     df_input, smiles_col, act_col, id_col,
                     mol_rep, radius_param, bit_size, sim_cutoff, act_cutoff
@@ -441,14 +443,3 @@ if uploaded_file:
                 "basic_landscape.csv", 
                 "text/csv"
             )
-             #### Technical Support 
-             For technical issues or suggestions, please create an issue on our 
-             [project repository](https://github.com/dasguptaindra/SALI-MAP-Analysis).
-
-             #### Scientific Context
-             Molecular landscape analysis helps identify critical structure-activity 
-             relationships in compound datasets, supporting drug discovery and 
-             chemical optimization efforts.
-             ''')
-
-
