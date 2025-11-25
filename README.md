@@ -1,1 +1,1 @@
-# SALI-MAP-Analysis
+# Structure-Activity-Landscape-Analysis
