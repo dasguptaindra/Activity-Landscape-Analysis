@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from rdkit import Chem, DataStructs
-from rdkit.Chem import AllChem, MACCSkeys
+from rdkit.Chem import AllChem, MACCSkeys, Descriptors, rdFingerprintGenerator
 import numpy as np
 import matplotlib.pyplot as plt
 import io
@@ -72,10 +72,40 @@ def generate_molecular_descriptors(smiles_list, desc_type, radius_param, n_bits)
                 desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=n_bits)
             elif desc_type == "ECFP6":
                 desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=3, nBits=n_bits)
+            elif desc_type == "ECFP8":
+                desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=4, nBits=n_bits)
+            elif desc_type == "ECFP10":
+                desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=5, nBits=n_bits)
+            elif desc_type == "FCFP4":
+                desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=n_bits, useFeatures=True)
+            elif desc_type == "FCFP6":
+                desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=3, nBits=n_bits, useFeatures=True)
             elif desc_type == "MACCS":
                 desc = MACCSkeys.GenMACCSKeys(mol)
+            elif desc_type == "RDKit":
+                desc = Chem.RDKFingerprint(mol, fpSize=n_bits)
+            elif desc_type == "Avalon":
+                from rdkit.Avalon import pyAvalonTools
+                desc = pyAvalonTools.GetAvalonFP(mol, nBits=n_bits)
+            elif desc_type == "AtomPairs":
+                desc = Chem.rdMolDescriptors.GetHashedAtomPairFingerprintAsBitVect(mol, nBits=n_bits)
+            elif desc_type == "TopologicalTorsions":
+                desc = Chem.rdMolDescriptors.GetHashedTopologicalTorsionFingerprintAsBitVect(mol, nBits=n_bits)
+            elif desc_type == "Pattern":
+                desc = Chem.rdmolops.PatternFingerprint(mol, fpSize=n_bits)
+            elif desc_type == "Morgan-Count":
+                # Count-based Morgan fingerprint
+                fp_gen = rdFingerprintGenerator.GetCountFPGenerator(fpSize=n_bits, radius=radius_param)
+                desc = fp_gen.GetCountFingerprint(mol)
+            elif desc_type == "Morgan-Chirality":
+                # Morgan fingerprint with chirality
+                desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=radius_param, nBits=n_bits, useChirality=True)
+            elif desc_type == "Morgan-Features":
+                # Morgan fingerprint with feature flags
+                desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=radius_param, nBits=n_bits, useFeatures=True)
             else:
-                desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=radius_param, nBits=n_bits)
+                # Default to ECFP4
+                desc = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=n_bits)
             
             descriptors.append(desc)
             valid_indices.append(idx)
@@ -230,15 +260,74 @@ st.sidebar.markdown(
 )
 
 # Parameters
-st.sidebar.markdown("### Parameters")
-mol_rep = st.sidebar.selectbox("Fingerprint Name", ["ECFP4", "ECFP6", "MACCS"], index=0)
+st.sidebar.markdown("### Molecular Representation")
 
-if mol_rep.startswith("ECFP"):
-    radius_param = 2 if mol_rep == "ECFP4" else 3
-    bit_size = st.sidebar.selectbox("Bit Dimension", [1024, 2048], index=0)
+# Fingerprint categories
+fp_categories = {
+    "Extended Connectivity Fingerprints (ECFP)": ["ECFP4", "ECFP6", "ECFP8", "ECFP10"],
+    "Functional Connectivity Fingerprints (FCFP)": ["FCFP4", "FCFP6"],
+    "Morgan Fingerprints (Advanced)": ["Morgan-Count", "Morgan-Chirality", "Morgan-Features"],
+    "Other Fingerprints": ["MACCS", "RDKit", "Avalon", "AtomPairs", "TopologicalTorsions", "Pattern"]
+}
+
+# Flatten the categories for the selectbox
+all_fingerprints = []
+for category, fps in fp_categories.items():
+    all_fingerprints.extend(fps)
+
+mol_rep = st.sidebar.selectbox("Fingerprint Type", all_fingerprints, index=0)
+
+# Set default parameters based on fingerprint type
+default_bits = 2048
+default_radius = 2
+
+if mol_rep in ["ECFP4", "FCFP4"]:
+    default_radius = 2
+elif mol_rep in ["ECFP6", "FCFP6"]:
+    default_radius = 3
+elif mol_rep == "ECFP8":
+    default_radius = 4
+elif mol_rep == "ECFP10":
+    default_radius = 5
+
+# Show radius parameter for fingerprints that use it
+if mol_rep in ["ECFP4", "ECFP6", "ECFP8", "ECFP10", "FCFP4", "FCFP6", 
+               "Morgan-Count", "Morgan-Chirality", "Morgan-Features"]:
+    radius_param = st.sidebar.slider("Radius Parameter", 1, 6, default_radius, 1,
+                                   help="Radius for Morgan fingerprint generation. Larger values capture larger molecular environments.")
 else:
-    radius_param = 0
-    bit_size = 167 
+    radius_param = default_radius
+
+# Bit size selection
+if mol_rep in ["ECFP4", "ECFP6", "ECFP8", "ECFP10", "FCFP4", "FCFP6", 
+               "RDKit", "Avalon", "AtomPairs", "TopologicalTorsions", "Pattern",
+               "Morgan-Count", "Morgan-Chirality", "Morgan-Features"]:
+    bit_size = st.sidebar.selectbox("Bit Dimension", [512, 1024, 2048, 4096], index=2)
+else:
+    # MACCS has fixed size
+    bit_size = 167
+
+# Display fingerprint description
+fp_descriptions = {
+    "ECFP4": "Extended Connectivity Fingerprint (radius 2) - captures atom environments up to 2 bonds away",
+    "ECFP6": "Extended Connectivity Fingerprint (radius 3) - captures larger atom environments",
+    "ECFP8": "Extended Connectivity Fingerprint (radius 4) - very large atom environments",
+    "ECFP10": "Extended Connectivity Fingerprint (radius 5) - extensive atom environments",
+    "FCFP4": "Functional Class Fingerprint (radius 2) - based on pharmacophoric features",
+    "FCFP6": "Functional Class Fingerprint (radius 3) - larger pharmacophoric features",
+    "MACCS": "MACCS Keys - 166 predefined structural fragments",
+    "RDKit": "RDKit topological fingerprint - based on hashed atom paths",
+    "Avalon": "Avalon fingerprint - linear fingerprints for chemical structures",
+    "AtomPairs": "Atom Pair fingerprint - captures pairs of atoms and their distances",
+    "TopologicalTorsions": "Topological Torsion fingerprint - captures linear sequences of 4 atoms",
+    "Pattern": "Pattern fingerprint - based on SMARTS patterns",
+    "Morgan-Count": "Morgan count-based fingerprint - uses counts instead of bits",
+    "Morgan-Chirality": "Morgan fingerprint with chirality information",
+    "Morgan-Features": "Morgan fingerprint using feature definitions"
+}
+
+if mol_rep in fp_descriptions:
+    st.sidebar.info(f"**{mol_rep}**: {fp_descriptions[mol_rep]}")
 
 # Visualization Settings
 st.sidebar.markdown("### Visualization Settings")
@@ -344,7 +433,7 @@ if uploaded_file is not None:
                 y="Activity_Diff",
                 color="Zone",
                 color_discrete_map=zone_colors,
-                title="SAS Map: Colored by Zone",
+                title=f"SAS Map: Colored by Zone ({mol_rep})",
                 hover_data=["Mol1_ID", "Mol2_ID", "SALI", "Zone"],
                 opacity=0.7,
                 render_mode='webgl'
@@ -356,7 +445,7 @@ if uploaded_file is not None:
                 y="Activity_Diff",
                 color=viz_color_col, 
                 color_continuous_scale=cmap_name,
-                title=f"SAS Map: Colored by {viz_color_col}",
+                title=f"SAS Map: Colored by {viz_color_col} ({mol_rep})",
                 hover_data=["Mol1_ID", "Mol2_ID", "SALI", "Zone"],
                 opacity=0.7,
                 render_mode='webgl'
@@ -400,8 +489,3 @@ if uploaded_file is not None:
 
 else:
     st.info("👆 Please upload a CSV file to begin analysis")
-
-
-
-
-
