@@ -32,6 +32,8 @@ if 'selected_fp' not in st.session_state:
     st.session_state['selected_fp'] = None
 if 'file_uploaded' not in st.session_state:
     st.session_state['file_uploaded'] = False
+if 'show_help' not in st.session_state:
+    st.session_state['show_help'] = False
 
 # ==============================================================================
 # 2. CORE COMPUTATIONAL FUNCTIONS (OPTIMIZED)
@@ -260,6 +262,48 @@ def safe_dataframe_display(df, max_rows=5):
 # ==============================================================================
 
 st.title("🧪 Activity Landscape Explorer")
+
+# Help Button in Top Right
+col_title, col_help = st.columns([0.8, 0.2])
+with col_help:
+    if st.button("❓ Help & Support", type="secondary"):
+        st.session_state['show_help'] = not st.session_state['show_help']
+
+# Help Section
+if st.session_state['show_help']:
+    with st.expander("💡 Help & Support Information", expanded=True):
+        st.markdown("""
+        ### 📖 User Guide
+        
+        **Getting Started:**
+        1. **Upload CSV**: Your data should contain SMILES strings and activity values
+        2. **Column Mapping**: Select which columns contain SMILES, activity, and optional IDs
+        3. **Configure Analysis**: Choose fingerprint type and similarity thresholds
+        4. **Explore Results**: Visualize SAS maps and analyze different SAR zones
+        
+        **Expected Data Format:**
+        - **SMILES Column**: Molecular structures in SMILES format
+        - **Activity Column**: Numeric activity values (pIC50, IC50, Ki, etc.)
+        - **ID Column (optional)**: Molecule identifiers/names
+        
+        **Troubleshooting:**
+        - Ensure SMILES strings are valid and properly formatted
+        - Activity values should be numeric (convert text to numbers if needed)
+        - For large datasets (>1000 molecules), processing may take a few minutes
+        
+        ### 🐛 Report Issues & Suggestions
+        
+        Found a bug? Have suggestions for improvement? 
+        Please report them on our GitHub repository:
+        
+        **[https://github.com/dasguptaindra/Structure-Activity-Landscape-Analysis](https://github.com/dasguptaindra/Structure-Activity-Landscape-Analysis)**
+        
+        When reporting issues, please include:
+        - Description of the problem
+        - Steps to reproduce
+        - Error messages (if any)
+        - Sample data (if possible)
+        """)
 
 st.sidebar.subheader("About")
 st.sidebar.info(
@@ -565,9 +609,38 @@ else:
 # ==============================================================================
 
 st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: gray;'>"
-    "Activity Landscape Explorer | Built with Streamlit & RDKit"
-    "</div>",
-    unsafe_allow_html=True
-)
+
+# Footer with credits and support info
+footer_col1, footer_col2, footer_col3 = st.columns([0.4, 0.3, 0.3])
+
+with footer_col1:
+    st.markdown(
+        "<div style='text-align: left; color: gray; font-size: 14px;'>"
+        "Activity Landscape Explorer | Built with Streamlit & RDKit"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+with footer_col2:
+    st.markdown(
+        "<div style='text-align: center; color: gray; font-size: 14px;'>"
+        "Developed by X"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+with footer_col3:
+    st.markdown(
+        "<div style='text-align: right; color: gray; font-size: 14px;'>"
+        "<a href='https://github.com/dasguptaindra/Structure-Activity-Landscape-Analysis' target='_blank' style='color: gray;'>"
+        "Report Issues & Suggestions"
+        "</a>"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+# Quick Help Button at bottom
+st.markdown("---")
+if st.button("💬 Quick Help", key="bottom_help"):
+    st.session_state['show_help'] = True
+    st.rerun()
