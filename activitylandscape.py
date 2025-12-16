@@ -261,7 +261,7 @@ def safe_dataframe_display(df, max_rows=5):
 # 3. UI LAYOUT
 # ==============================================================================
 
-st.title("🧪 Activity Landscape Explorer")
+st.title("Activity Landscape Explorer")
 
 # Help Button in Top Right
 col_title, col_help = st.columns([0.8, 0.2])
@@ -634,3 +634,4 @@ with footer_col3:
         "</div>",
         unsafe_allow_html=True
     )
+
