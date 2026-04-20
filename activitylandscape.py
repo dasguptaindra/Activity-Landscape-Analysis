@@ -73,7 +73,6 @@ def compute_density(x, y, max_samples=50000):
     except Exception:
         return np.zeros_like(x)
 
-@st.cache_data
 def generate_molecular_descriptors(smiles_list, desc_type, n_bits):
     """Generate molecular descriptors (Cached)."""
     descriptors = []
