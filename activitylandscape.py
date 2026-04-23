@@ -11,9 +11,7 @@ from scipy.stats import gaussian_kde
 from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem, MACCSkeys, rdFingerprintGenerator
 
-# ==============================================================================
 # 1. APP CONFIGURATION & SETUP
-# ==============================================================================
 
 st.set_page_config(
     page_title="Activity Landscape Explorer",
@@ -35,9 +33,7 @@ if 'file_uploaded' not in st.session_state:
 if 'show_help' not in st.session_state:
     st.session_state['show_help'] = False
 
-# ==============================================================================
-# 2. CORE COMPUTATIONAL FUNCTIONS (OPTIMIZED)
-# ==============================================================================
+# 2. CORE COMPUTATIONAL FUNCTIONS
 
 @st.cache_data
 def compute_density(x, y, max_samples=50000):
@@ -256,9 +252,7 @@ def safe_dataframe_display(df, max_rows=5):
     except Exception:
         st.write(df.head(max_rows))
 
-# ==============================================================================
 # 3. UI LAYOUT
-# ==============================================================================
 
 st.title("Activity Landscape Explorer")
 
@@ -318,9 +312,7 @@ st.sidebar.markdown("""
 - **Non-descript**: Low similarity, high activity difference
 """)
 
-# ==============================================================================
 # 4. DATA INPUT
-# ==============================================================================
 
 st.subheader("1. Dataset Input")
 uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
@@ -368,9 +360,7 @@ if uploaded_file is not None:
         'id_col': id_col, 'smiles_col': smiles_col, 'act_col': act_col
     }
 
-    # ==============================================================================
     # 5. SETTINGS & ANALYSIS
-    # ==============================================================================
     
     st.markdown("---")
     st.subheader("3. Analysis Settings")
@@ -419,9 +409,7 @@ if uploaded_file is not None:
                 st.session_state['analysis_results'] = results
                 st.success(f"Processed {len(results)} pairs successfully!")
 
-    # ==============================================================================
     # 6. VISUALIZATION & CLEAR BUTTON
-    # ==============================================================================
 
     if st.session_state['analysis_results'] is not None:
         # Add Clear Analysis button at the top of results section
@@ -498,9 +486,7 @@ if uploaded_file is not None:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # ==============================================================================
         # 7. DETAILED ANALYSIS & DOWNLOADS
-        # ==============================================================================
 
         st.subheader("🔍 Detailed Analysis")
         
@@ -599,9 +585,7 @@ else:
     """)
 
     
-# ==============================================================================
 # 8. FOOTER
-# ==============================================================================
 
 st.markdown("---")
 
